@@ -16,43 +16,81 @@ try {
 const isAIAvailable = () => !!genAI;
 
 /**
- * Call Gemini chat completion with error handling
+ * Sleep helper for retry backoff
+ */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Determine whether an error is a transient/retryable Gemini error
+ * (503 Service Unavailable, 429 Too Many Requests, etc.)
+ */
+function isRetryableError(err) {
+  const msg = (err.message || '').toLowerCase();
+  return (
+    msg.includes('503') ||
+    msg.includes('service unavailable') ||
+    msg.includes('429') ||
+    msg.includes('too many requests') ||
+    msg.includes('rate limit') ||
+    msg.includes('high demand')
+  );
+}
+
+/**
+ * Call Gemini chat completion with retry logic and graceful error handling.
+ * Retries up to MAX_RETRIES times on transient errors before falling back to mock.
  */
 async function callAI(systemPrompt, userPrompt, jsonMode = true) {
   if (!genAI) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('Gemini API key is missing or invalid in production environment');
-    }
     return null; // Will trigger fallback mock response
   }
 
-  try {
-    // Using gemini-2.5-flash which is the correct model name for modern Google AI Studio keys
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    
-    // Combine system prompt and user prompt
-    let fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
-    if (jsonMode) {
-      fullPrompt += '\n\nIMPORTANT: Return ONLY a valid JSON object. Do not include markdown formatting or backticks around the JSON.';
-    }
+  const MAX_RETRIES = 3;
+  const BASE_DELAY_MS = 2000; // 2 s initial delay, doubles each retry
 
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    let text = response.text();
+  // Using gemini-2.5-flash which is the correct model name for modern Google AI Studio keys
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    if (jsonMode) {
-      // Clean up potential markdown formatting that the model might add
-      text = text.replace(/^```json/mi, '').replace(/^```/mi, '').trim();
-      return JSON.parse(text);
-    }
-    return text;
-  } catch (err) {
-    console.error('Gemini API error:', err.message);
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error(`Gemini API error: ${err.message}`);
-    }
-    return null;
+  let fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+  if (jsonMode) {
+    fullPrompt += '\n\nIMPORTANT: Return ONLY a valid JSON object. Do not include markdown formatting or backticks around the JSON.';
   }
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const result = await model.generateContent(fullPrompt);
+      const response = await result.response;
+      let text = response.text();
+
+      if (jsonMode) {
+        // Clean up potential markdown formatting that the model might add
+        text = text.replace(/^```json/mi, '').replace(/^```/mi, '').trim();
+        return JSON.parse(text);
+      }
+      return text;
+    } catch (err) {
+      const retryable = isRetryableError(err);
+      console.error(
+        `Gemini API error (attempt ${attempt}/${MAX_RETRIES}):`,
+        err.message
+      );
+
+      if (retryable && attempt < MAX_RETRIES) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        console.warn(`Retryable error detected. Retrying in ${delay}ms…`);
+        await sleep(delay);
+        continue;
+      }
+
+      // Non-retryable error or exhausted retries — fall back to mock
+      console.warn('Falling back to mock AI response.');
+      return null;
+    }
+  }
+
+  return null; // Fallback if loop exits without returning
 }
 
 /**
@@ -343,33 +381,54 @@ async function globalChatWithMentor(message, files = [], history = []) {
 
   const userPrompt = `${historyText}Student's Current Message: ${message || '(File attached)'}`;
 
-  try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    
-    // Prepare contents array
-    const contents = [];
-    
-    // Convert multer files to Gemini inline data parts
-    if (files && files.length > 0) {
-      for (const file of files) {
-        contents.push({
-          inlineData: {
-            data: file.buffer.toString('base64'),
-            mimeType: file.mimetype
-          }
-        });
+  const MAX_RETRIES = 3;
+  const BASE_DELAY_MS = 2000;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+      // Prepare contents array
+      const contents = [];
+
+      // Convert multer files to Gemini inline data parts
+      if (files && files.length > 0) {
+        for (const file of files) {
+          contents.push({
+            inlineData: {
+              data: file.buffer.toString('base64'),
+              mimeType: file.mimetype
+            }
+          });
+        }
       }
+
+      contents.push({ text: `${systemPrompt}\n\n${userPrompt}` });
+
+      const result = await model.generateContent(contents);
+      const response = await result.response;
+      return response.text();
+    } catch (err) {
+      const retryable = isRetryableError(err);
+      console.error(
+        `Gemini API error - Global Chat (attempt ${attempt}/${MAX_RETRIES}):`,
+        err.message
+      );
+
+      if (retryable && attempt < MAX_RETRIES) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        console.warn(`Retryable error detected. Retrying in ${delay}ms…`);
+        await sleep(delay);
+        continue;
+      }
+
+      // Non-retryable or retries exhausted — return friendly message
+      console.warn('Global Chat: falling back to error message after retries.');
+      return "Xatolik yuz berdi. Iltimos keyinroq qayta urinib ko'ring.";
     }
-
-    contents.push({ text: `${systemPrompt}\n\n${userPrompt}` });
-
-    const result = await model.generateContent(contents);
-    const response = await result.response;
-    return response.text();
-  } catch (err) {
-    console.error('Gemini API error (Global Chat):', err.message);
-    return "Xatolik yuz berdi. Iltimos keyinroq qayta urinib ko'ring.";
   }
+
+  return "Xatolik yuz berdi. Iltimos keyinroq qayta urinib ko'ring.";
 }
 
 module.exports = {
