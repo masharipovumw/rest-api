@@ -1,0 +1,21 @@
+/**
+ * Standardized API response helpers
+ * Ensures consistent JSON response format across all endpoints
+ */
+
+const success = (res, data = null, message = 'Success', statusCode = 200) => {
+  return res.status(statusCode).json({
+    success: true,
+    message,
+    data,
+  });
+};
+
+const error = (res, message = 'Server error', statusCode = 500) => {
+  return res.status(statusCode).json({
+    success: false,
+    message,
+  });
+};
+
+module.exports = { success, error };
