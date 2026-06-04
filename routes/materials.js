@@ -10,11 +10,26 @@ const {
 const { verifyJWT, roleMiddleware } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
+// Wrap multer so its errors are caught and returned as 400 JSON,
+// instead of falling through to the global error handler.
+const handleUpload = (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      const message =
+        err.code === 'LIMIT_FILE_SIZE'
+          ? 'File too large. Maximum size is 50MB.'
+          : err.message || 'File upload failed.';
+      return res.status(400).json({ success: false, message });
+    }
+    next();
+  });
+};
+
 router.post(
   '/upload',
   verifyJWT,
   roleMiddleware('teacher', 'admin'),
-  upload.single('file'),
+  handleUpload,
   uploadMaterial
 );
 
