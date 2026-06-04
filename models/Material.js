@@ -12,7 +12,7 @@ const materialSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['video', 'audio', 'image', 'pdf', 'text', 'pptx', 'ppt', 'presentation', 'doc', 'docx', 'xls', 'xlsx'],
+    enum: ['video', 'audio', 'image', 'pdf', 'text', 'pptx', 'ppt', 'presentation', 'doc', 'docx', 'xls', 'xlsx', 'word', 'excel'],
     required: [true, 'Material type is required'],
   },
   topic: {
