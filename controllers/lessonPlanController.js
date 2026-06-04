@@ -2,10 +2,6 @@ const LessonPlan = require('../models/LessonPlan');
 const Material = require('../models/Material');
 const { success, error } = require('../utils/response');
 
-/**
- * POST /api/lesson-plans
- * Student submits a lesson plan
- */
 const submitLessonPlan = async (req, res) => {
   try {
     const { materialId, title, content } = req.body;
@@ -14,7 +10,6 @@ const submitLessonPlan = async (req, res) => {
       return error(res, 'Title and content are required.', 400);
     }
 
-    // Verify material exists if provided
     if (materialId) {
       const material = await Material.findById(materialId);
       if (!material) {
@@ -36,17 +31,12 @@ const submitLessonPlan = async (req, res) => {
   }
 };
 
-/**
- * GET /api/lesson-plans
- * List lesson plans (with optional filters)
- */
 const getLessonPlans = async (req, res) => {
   try {
     const { studentId, status, page = 1, limit = 20 } = req.query;
 
     const filter = {};
 
-    // Students can only see their own lesson plans
     if (req.user.role === 'student') {
       filter.studentId = req.user._id;
     } else if (studentId) {
@@ -80,10 +70,6 @@ const getLessonPlans = async (req, res) => {
   }
 };
 
-/**
- * GET /api/lesson-plans/:id
- * Get single lesson plan
- */
 const getLessonPlanById = async (req, res) => {
   try {
     const lessonPlan = await LessonPlan.findById(req.params.id)
@@ -94,7 +80,6 @@ const getLessonPlanById = async (req, res) => {
       return error(res, 'Lesson plan not found.', 404);
     }
 
-    // Students can only see their own
     if (req.user.role === 'student' && lessonPlan.studentId._id.toString() !== req.user._id.toString()) {
       return error(res, 'Access denied.', 403);
     }
@@ -106,10 +91,6 @@ const getLessonPlanById = async (req, res) => {
   }
 };
 
-/**
- * PATCH /api/lesson-plans/:id/grade
- * Teacher grades a lesson plan (teacher/admin only)
- */
 const gradeLessonPlan = async (req, res) => {
   try {
     const { teacherGrade, teacherFeedback } = req.body;

@@ -7,10 +7,6 @@ const path = require('path');
 const { success, error } = require('../utils/response');
 const { convertPptxToPdf } = require('../services/pptxConverter');
 
-/**
- * POST /api/materials/upload
- * Upload a new material (teacher/admin only)
- */
 const uploadMaterial = async (req, res) => {
   try {
     const { title, description, type, topic, textContent } = req.body;
@@ -28,7 +24,6 @@ const uploadMaterial = async (req, res) => {
       teacherId: req.user._id,
     };
 
-    // If a file was uploaded, add file metadata
     if (req.file) {
       const folder = getMimeFolder(req.file.mimetype);
       materialData.fileUrl = `/uploads/${folder}/${req.file.filename}`;
@@ -41,9 +36,8 @@ const uploadMaterial = async (req, res) => {
 
     const material = await Material.create(materialData);
 
-    // Kick off PPTX → PDF conversion in the background (non-blocking)
     if ((type === 'pptx' || type === 'ppt' || type === 'presentation') && req.file) {
-      const pptxAbsPath = path.join(process.cwd(), materialData.fileUrl);
+      const pptxAbsPath = path.join(process.cwd(), materialData.fileUrl.replace(/^\//, ''));
       const pdfFileName = path.basename(req.file.filename, path.extname(req.file.filename)) + '.pdf';
       const pdfRelUrl = `/uploads/pdfs/${pdfFileName}`;
       const pdfAbsPath = path.join(process.cwd(), pdfRelUrl);
@@ -65,10 +59,6 @@ const uploadMaterial = async (req, res) => {
   }
 };
 
-/**
- * GET /api/materials
- * List all materials (with optional filters)
- */
 const getMaterials = async (req, res) => {
   try {
     const { type, topic, approved, search, page = 1, limit = 20 } = req.query;
@@ -108,10 +98,6 @@ const getMaterials = async (req, res) => {
   }
 };
 
-/**
- * GET /api/materials/:id
- * Get single material by ID
- */
 const getMaterialById = async (req, res) => {
   try {
     const material = await Material.findById(req.params.id)
@@ -128,10 +114,6 @@ const getMaterialById = async (req, res) => {
   }
 };
 
-/**
- * PUT /api/materials/:id
- * Update material metadata (teacher/admin only)
- */
 const updateMaterial = async (req, res) => {
   try {
     const { title, description, topic, textContent } = req.body;
@@ -141,7 +123,6 @@ const updateMaterial = async (req, res) => {
       return error(res, 'Material not found.', 404);
     }
 
-    // Only the teacher who created it or admin can update
     if (material.teacherId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return error(res, 'Not authorized to update this material.', 403);
     }
@@ -160,10 +141,6 @@ const updateMaterial = async (req, res) => {
   }
 };
 
-/**
- * DELETE /api/materials/:id
- * Delete material and its file (teacher/admin only)
- */
 const deleteMaterial = async (req, res) => {
   try {
     const material = await Material.findById(req.params.id);
@@ -171,12 +148,10 @@ const deleteMaterial = async (req, res) => {
       return error(res, 'Material not found.', 404);
     }
 
-    // Only the teacher who created it or admin can delete
     if (material.teacherId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return error(res, 'Not authorized to delete this material.', 403);
     }
 
-    // Delete file from disk if it exists
     if (material.fileUrl) {
       const filePath = path.join(process.cwd(), material.fileUrl);
       if (fs.existsSync(filePath)) {
@@ -190,22 +165,17 @@ const deleteMaterial = async (req, res) => {
       }
     }
 
-    // Delete related data in MongoDB to free up space (Cascade Delete)
     const tests = await Test.find({ materialId: req.params.id });
     const testIds = tests.map(t => t._id);
-    
-    // 1. Delete all submissions for those tests
+
     if (testIds.length > 0) {
       await Submission.deleteMany({ testId: { $in: testIds } });
     }
-    
-    // 2. Delete the tests themselves
+
     await Test.deleteMany({ materialId: req.params.id });
-    
-    // 3. Delete any lesson plans associated with this material
+
     await LessonPlan.deleteMany({ materialId: req.params.id });
 
-    // 4. Finally, delete the material document
     await Material.findByIdAndDelete(req.params.id);
 
     return success(res, null, 'Material deleted successfully');
@@ -215,10 +185,6 @@ const deleteMaterial = async (req, res) => {
   }
 };
 
-/**
- * POST /api/materials/:id/approve
- * Approve a material (teacher/admin only)
- */
 const approveMaterial = async (req, res) => {
   try {
     const material = await Material.findById(req.params.id);
@@ -236,13 +202,14 @@ const approveMaterial = async (req, res) => {
   }
 };
 
-// Helper: get folder name from mime type
 function getMimeFolder(mimetype) {
   if (mimetype.startsWith('video/')) return 'videos';
   if (mimetype.startsWith('audio/')) return 'audios';
   if (mimetype.startsWith('image/')) return 'images';
   if (mimetype === 'application/pdf') return 'pdfs';
   if (mimetype.includes('powerpoint') || mimetype.includes('presentation')) return 'presentations';
+  if (mimetype === 'application/msword' || mimetype.includes('wordprocessingml')) return 'documents';
+  if (mimetype === 'application/vnd.ms-excel' || mimetype.includes('spreadsheetml')) return 'documents';
   return 'pdfs';
 }
 

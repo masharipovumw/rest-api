@@ -2,10 +2,6 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { error } = require('../utils/response');
 
-/**
- * Verify JWT token from Authorization header
- * Attaches user object to req.user
- */
 const verifyJWT = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -32,10 +28,6 @@ const verifyJWT = async (req, res, next) => {
   }
 };
 
-/**
- * Role-based access control middleware
- * Usage: roleMiddleware('admin') or roleMiddleware('teacher', 'admin')
- */
 const roleMiddleware = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {

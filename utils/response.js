@@ -1,8 +1,3 @@
-/**
- * Standardized API response helpers
- * Ensures consistent JSON response format across all endpoints
- */
-
 const success = (res, data = null, message = 'Success', statusCode = 200) => {
   return res.status(statusCode).json({
     success: true,

@@ -1,6 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Initialize Gemini client (will gracefully handle missing API key)
 let genAI = null;
 try {
   if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
@@ -10,22 +9,12 @@ try {
   console.warn('Gemini initialization failed. AI endpoints will use mock responses.');
 }
 
-/**
- * Check if Gemini is available
- */
 const isAIAvailable = () => !!genAI;
 
-/**
- * Sleep helper for retry backoff
- */
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Determine whether an error is a transient/retryable Gemini error
- * (503 Service Unavailable, 429 Too Many Requests, etc.)
- */
 function isRetryableError(err) {
   const msg = (err.message || '').toLowerCase();
   return (
@@ -38,19 +27,14 @@ function isRetryableError(err) {
   );
 }
 
-/**
- * Call Gemini chat completion with retry logic and graceful error handling.
- * Retries up to MAX_RETRIES times on transient errors before falling back to mock.
- */
 async function callAI(systemPrompt, userPrompt, jsonMode = true) {
   if (!genAI) {
-    return null; // Will trigger fallback mock response
+    return null;
   }
 
   const MAX_RETRIES = 3;
-  const BASE_DELAY_MS = 2000; // 2 s initial delay, doubles each retry
+  const BASE_DELAY_MS = 2000;
 
-  // Using gemini-2.5-flash which is the correct model name for modern Google AI Studio keys
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   let fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
@@ -65,7 +49,7 @@ async function callAI(systemPrompt, userPrompt, jsonMode = true) {
       let text = response.text();
 
       if (jsonMode) {
-        // Clean up potential markdown formatting that the model might add
+
         text = text.replace(/^```json/mi, '').replace(/^```/mi, '').trim();
         return JSON.parse(text);
       }
@@ -84,24 +68,19 @@ async function callAI(systemPrompt, userPrompt, jsonMode = true) {
         continue;
       }
 
-      // Non-retryable error or exhausted retries — fall back to mock
       console.warn('Falling back to mock AI response.');
       return null;
     }
   }
 
-  return null; // Fallback if loop exits without returning
+  return null;
 }
 
-/**
- * Analyze uploaded material
- * Returns: relevance score, difficulty level, suggested tests, suggested assignments
- */
 async function analyzeMaterial(material) {
-  const systemPrompt = `You are an educational content analyst. Analyze the given learning material and provide a structured evaluation. 
-  Return JSON with: relevanceScore (1-10), difficultyLevel (beginner/intermediate/advanced), 
-  topicAccuracy (1-10), contentQuality (1-10), suggestedQuestions (array of 3-5 questions), 
-  suggestedAssignments (array of 2-3 assignments), summary (brief analysis), 
+  const systemPrompt = `You are an educational content analyst. Analyze the given learning material and provide a structured evaluation.
+  Return JSON with: relevanceScore (1-10), difficultyLevel (beginner/intermediate/advanced),
+  topicAccuracy (1-10), contentQuality (1-10), suggestedQuestions (array of 3-5 questions),
+  suggestedAssignments (array of 2-3 assignments), summary (brief analysis),
   bloomLevels (which Bloom taxonomy levels this material covers: remember, understand, apply, analyze).
   Respond in Uzbek language. Barcha matnlar O'zbek tilida bo'lishi shart.`;
 
@@ -116,7 +95,6 @@ async function analyzeMaterial(material) {
 
   if (result) return result;
 
-  // Mock response for demo when AI is unavailable
   return {
     relevanceScore: 8,
     difficultyLevel: 'intermediate',
@@ -139,14 +117,11 @@ async function analyzeMaterial(material) {
   };
 }
 
-/**
- * Generate test questions from material
- */
 async function generateTest(material, questionCount = 5) {
   const systemPrompt = `You are an educational test generator. Create a well-balanced test based on the given material.
-  Return JSON with: title (string), timer (number in minutes), 
-  questions (array of objects with: type (single/multiple/matching/open), question (string), 
-  options (array of strings, empty for open), correctAnswer (string for single, array for multiple, null for open), 
+  Return JSON with: title (string), timer (number in minutes),
+  questions (array of objects with: type (single/multiple/matching/open), question (string),
+  options (array of strings, empty for open), correctAnswer (string for single, array for multiple, null for open),
   matchPairs (array of {left, right} for matching type, empty otherwise), points (number 1-3)).
   Include a mix of question types covering different Bloom taxonomy levels.
   Respond in Uzbek language. Barcha savollar va variantlar O'zbek tilida bo'lishi shart.`;
@@ -161,7 +136,6 @@ async function generateTest(material, questionCount = 5) {
 
   if (result) return result;
 
-  // Mock response
   return {
     title: `Test: ${material.title}`,
     timer: 15,
@@ -195,9 +169,6 @@ async function generateTest(material, questionCount = 5) {
   };
 }
 
-/**
- * Evaluate student answer using Bloom's taxonomy
- */
 async function evaluateAnswer(question, studentAnswer, context = '') {
   const systemPrompt = `You are an educational assessment expert specializing in Bloom's Taxonomy evaluation.
   Evaluate the student's answer and provide cognitive level analysis.
@@ -211,14 +182,13 @@ async function evaluateAnswer(question, studentAnswer, context = '') {
   const userPrompt = `Question: ${question}
   Student's Answer: ${studentAnswer}
   ${context ? `Context/Material: ${context}` : ''}
-  
+
   Evaluate the cognitive quality of this answer using Bloom's Taxonomy.`;
 
   const result = await callAI(systemPrompt, userPrompt);
 
   if (result) return result;
 
-  // Mock response
   return {
     correctness: 65,
     feedback: 'Javob asosiy tushunchalarni namoyish etadi, ammo chuqur tahlil yetishmaydi. Fikringizni mustahkamlash uchun aniq dalillar keltirish va taqqoslashlarni ko\'rib chiqing.',
@@ -235,13 +205,10 @@ async function evaluateAnswer(question, studentAnswer, context = '') {
   };
 }
 
-/**
- * Generate personalized recommendations for a student
- */
 async function generateRecommendations(studentData) {
   const systemPrompt = `You are an educational advisor AI. Based on the student's performance data,
   generate personalized learning recommendations.
-  Return JSON with: recommendations (array of objects with: topic (string), message (string), 
+  Return JSON with: recommendations (array of objects with: topic (string), message (string),
   priority (low/medium/high), type (review/practice/advance/remedial)),
   overallAssessment (string), suggestedFocus (string).
   Respond in Uzbek language. Barcha matnlar O'zbek tilida bo'lishi shart.`;
@@ -252,14 +219,13 @@ async function generateRecommendations(studentData) {
   Weak Topics: ${(studentData.weakTopics || []).join(', ') || 'None identified'}
   Strong Topics: ${(studentData.strongTopics || []).join(', ') || 'None identified'}
   Cognitive Growth: ${JSON.stringify(studentData.cognitiveGrowth || [])}
-  
+
   Generate personalized learning recommendations.`;
 
   const result = await callAI(systemPrompt, userPrompt);
 
   if (result) return result;
 
-  // Mock response
   return {
     recommendations: [
       {
@@ -287,13 +253,10 @@ async function generateRecommendations(studentData) {
   };
 }
 
-/**
- * Evaluate student-created lesson plan
- */
 async function evaluateLessonPlan(lessonPlan, materialContext = '') {
   const systemPrompt = `You are an expert pedagogy evaluator. Evaluate the student-created lesson plan/project.
-  Return JSON with: overallScore (0-100), 
-  criteria: { structure (0-10), content (0-10), creativity (0-10), 
+  Return JSON with: overallScore (0-100),
+  criteria: { structure (0-10), content (0-10), creativity (0-10),
   pedagogicalValue (0-10), bloomCoverage (0-10) },
   feedback (detailed constructive feedback string),
   strengths (array of strings), improvements (array of strings),
@@ -305,14 +268,13 @@ async function evaluateLessonPlan(lessonPlan, materialContext = '') {
   Title: ${lessonPlan.title || 'Untitled'}
   Content: ${lessonPlan.content}
   ${materialContext ? `Based on Material: ${materialContext}` : ''}
-  
+
   Assess the pedagogical quality and cognitive depth of this lesson plan.`;
 
   const result = await callAI(systemPrompt, userPrompt);
 
   if (result) return result;
 
-  // Mock response
   return {
     overallScore: 72,
     criteria: {
@@ -331,11 +293,8 @@ async function evaluateLessonPlan(lessonPlan, materialContext = '') {
   };
 }
 
-/**
- * Chat with AI Mentor
- */
 async function chatWithMentor(message, materialContext = '', history = []) {
-  const systemPrompt = `You are a helpful and encouraging virtual AI Mentor for students. 
+  const systemPrompt = `You are a helpful and encouraging virtual AI Mentor for students.
   Your goal is to answer the student's question based on the provided material context.
   If the answer is not in the context, use your general knowledge but mention that it's outside the current lesson scope.
   Keep your answers concise, clear, and encouraging. Use markdown for formatting if needed.
@@ -352,13 +311,9 @@ async function chatWithMentor(message, materialContext = '', history = []) {
 
   if (result) return result;
 
-  // Mock response
   return "Assalomu alaykum! Kechirasiz, hozirda AI tizimida uzilish mavjud. Savolingizni birozdan so'ng qayta yo'llang.";
 }
 
-/**
- * Global Chat with AI Mentor (handles file uploads)
- */
 async function globalChatWithMentor(message, files = [], history = []) {
   if (!genAI) {
     if (process.env.NODE_ENV === 'production') {
@@ -367,9 +322,9 @@ async function globalChatWithMentor(message, files = [], history = []) {
     return "Kechirasiz, hozirda AI xizmati mavjud emas.";
   }
 
-  const systemPrompt = `You are a strict educational AI Mentor. 
+  const systemPrompt = `You are a strict educational AI Mentor.
   Your ONLY purpose is to answer questions related to education, academics, learning, and study materials.
-  If the user asks about ANYTHING ELSE (e.g., general knowledge, entertainment, personal advice, coding non-educational tools, etc.), 
+  If the user asks about ANYTHING ELSE (e.g., general knowledge, entertainment, personal advice, coding non-educational tools, etc.),
   you MUST stop the conversation by replying with a polite refusal in Uzbek (e.g., "Kechirasiz, men faqat ta'lim va o'quv jarayoniga oid savollarga javob bera olaman.").
   Keep your answers concise, clear, and encouraging. Use markdown for formatting if needed.
   Respond in the same language the student is asking (mostly Uzbek).`;
@@ -388,10 +343,8 @@ async function globalChatWithMentor(message, files = [], history = []) {
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-      // Prepare contents array
       const contents = [];
 
-      // Convert multer files to Gemini inline data parts
       if (files && files.length > 0) {
         for (const file of files) {
           contents.push({
@@ -422,7 +375,6 @@ async function globalChatWithMentor(message, files = [], history = []) {
         continue;
       }
 
-      // Non-retryable or retries exhausted — return friendly message
       console.warn('Global Chat: falling back to error message after retries.');
       return "Xatolik yuz berdi. Iltimos keyinroq qayta urinib ko'ring.";
     }

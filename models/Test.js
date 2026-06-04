@@ -15,12 +15,12 @@ const questionSchema = new mongoose.Schema({
     default: [],
   },
   correctAnswer: {
-    // For single: string, for multiple: array, for open: null
+
     type: mongoose.Schema.Types.Mixed,
     default: null,
   },
   matchPairs: {
-    // For matching type: [{ left: "...", right: "..." }]
+
     type: [{ left: String, right: String }],
     default: [],
   },
@@ -42,7 +42,7 @@ const testSchema = new mongoose.Schema({
     trim: true,
   },
   timer: {
-    // Time limit in minutes, 0 = no limit
+
     type: Number,
     default: 0,
   },

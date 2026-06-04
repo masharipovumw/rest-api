@@ -1,9 +1,5 @@
 const Notification = require('../models/Notification');
 
-/**
- * Create a notification for a student.
- * Used internally by other helpers and can be called directly.
- */
 async function createNotification(studentId, title, message, type) {
   try {
     const notification = await Notification.create({
@@ -19,9 +15,6 @@ async function createNotification(studentId, title, message, type) {
   }
 }
 
-/**
- * Notify student after teacher reviews their submission
- */
 async function notifyTeacherReview(studentId, status) {
   const statusText = status === 'approved' ? 'qabul qilindi' : 'rad etildi';
   return createNotification(
@@ -32,9 +25,6 @@ async function notifyTeacherReview(studentId, status) {
   );
 }
 
-/**
- * Notify student after AI evaluation is completed
- */
 async function notifyAIFeedback(studentId) {
   return createNotification(
     studentId,
@@ -44,9 +34,6 @@ async function notifyAIFeedback(studentId) {
   );
 }
 
-/**
- * Notify student after final analytics result is saved
- */
 async function notifyFinalResult(studentId, score) {
   return createNotification(
     studentId,
@@ -56,9 +43,6 @@ async function notifyFinalResult(studentId, score) {
   );
 }
 
-/**
- * Notify student after personalized recommendation is generated
- */
 async function notifyRecommendation(studentId) {
   return createNotification(
     studentId,

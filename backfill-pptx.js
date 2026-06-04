@@ -1,9 +1,3 @@
-/**
- * backfill-pptx.js
- * Converts all existing PPTX materials that don't yet have a convertedPdfUrl.
- * Run once: node backfill-pptx.js
- */
-
 require('dotenv').config();
 const mongoose = require('mongoose');
 const path = require('path');

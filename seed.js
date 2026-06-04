@@ -7,7 +7,6 @@ const seedUsers = async () => {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
-    // 1. Create Admin
     const adminEmail = 'admin@example.com';
     let admin = await User.findOne({ email: adminEmail });
     if (!admin) {
@@ -22,7 +21,6 @@ const seedUsers = async () => {
       console.log('ℹ️ Admin user already exists.');
     }
 
-    // 2. Create Teacher
     const teacherEmail = 'teacher@example.com';
     let teacher = await User.findOne({ email: teacherEmail });
     if (!teacher) {

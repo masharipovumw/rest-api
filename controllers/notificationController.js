@@ -2,10 +2,6 @@ const Notification = require('../models/Notification');
 const { success, error } = require('../utils/response');
 const mongoose = require('mongoose');
 
-/**
- * GET /api/notifications/:studentId
- * Get all notifications for a student with unread count
- */
 const getNotifications = async (req, res) => {
   try {
     const { studentId } = req.params;
@@ -34,15 +30,10 @@ const getNotifications = async (req, res) => {
   }
 };
 
-/**
- * POST /api/notifications
- * Create a new notification
- */
 const createNotification = async (req, res) => {
   try {
     const { studentId, title, message, type } = req.body;
 
-    // Validation
     if (!studentId || !title || !message || !type) {
       return error(res, 'studentId, title, message, and type are required.', 400);
     }
@@ -70,10 +61,6 @@ const createNotification = async (req, res) => {
   }
 };
 
-/**
- * PATCH /api/notifications/:id/read
- * Mark a notification as read
- */
 const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;

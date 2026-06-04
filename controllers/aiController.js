@@ -8,10 +8,6 @@ const aiService = require('../services/aiService');
 const notificationService = require('../services/notificationService');
 const { success, error } = require('../utils/response');
 
-/**
- * POST /api/ai/analyze-material
- * Analyze uploaded material using AI
- */
 const analyzeMaterial = async (req, res) => {
   try {
     const { materialId } = req.body;
@@ -25,10 +21,8 @@ const analyzeMaterial = async (req, res) => {
       return error(res, 'Material not found.', 404);
     }
 
-    // Run AI analysis
     const analysis = await aiService.analyzeMaterial(material);
 
-    // Update material with analysis results
     material.aiAnalysis = analysis;
     material.aiStatus = 'analyzed';
     await material.save();
@@ -44,10 +38,6 @@ const analyzeMaterial = async (req, res) => {
   }
 };
 
-/**
- * POST /api/ai/generate-test
- * Generate test questions from material using AI
- */
 const generateTest = async (req, res) => {
   try {
     const { materialId, questionCount } = req.body;
@@ -74,10 +64,6 @@ const generateTest = async (req, res) => {
   }
 };
 
-/**
- * POST /api/ai/evaluate-answer
- * Evaluate student's answer using Bloom's taxonomy
- */
 const evaluateAnswer = async (req, res) => {
   try {
     const { submissionId, questionIndex, question, answer, context } = req.body;
@@ -88,7 +74,6 @@ const evaluateAnswer = async (req, res) => {
 
     const evaluation = await aiService.evaluateAnswer(question, answer, context);
 
-    // If submissionId provided, update the submission with AI feedback
     if (submissionId) {
       const submission = await Submission.findById(submissionId);
       if (submission) {
@@ -96,13 +81,10 @@ const evaluateAnswer = async (req, res) => {
         submission.bloomAnalysis = evaluation.bloomAnalysis;
         await submission.save();
 
-        // Update student cognitive growth
         await updateCognitiveGrowth(submission.studentId, evaluation.bloomAnalysis);
 
-        // Update Analytics Bloom snapshot
         await updateAnalyticsBloom(submission.studentId, evaluation.bloomAnalysis, submission.percentage);
 
-        // Notify student: AI evaluation completed
         notificationService.notifyAIFeedback(submission.studentId).catch(err =>
           console.error('AI feedback notification error:', err)
         );
@@ -119,10 +101,6 @@ const evaluateAnswer = async (req, res) => {
   }
 };
 
-/**
- * POST /api/ai/recommendations
- * Generate personalized recommendations for a student
- */
 const recommendations = async (req, res) => {
   try {
     const { studentId } = req.body;
@@ -131,7 +109,6 @@ const recommendations = async (req, res) => {
       return error(res, 'studentId is required.', 400);
     }
 
-    // Get student analytics
     let analytics = await Analytics.findOne({ studentId });
     if (!analytics) {
       analytics = { totalScore: 0, testsCompleted: 0, weakTopics: [], strongTopics: [], cognitiveGrowth: [] };
@@ -139,7 +116,6 @@ const recommendations = async (req, res) => {
 
     const result = await aiService.generateRecommendations(analytics);
 
-    // Save recommendations
     await Recommendation.findOneAndUpdate(
       { studentId },
       {
@@ -150,7 +126,6 @@ const recommendations = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Update analytics recommendation text
     try {
       let analytics = await Analytics.findOne({ studentId });
       if (!analytics) {
@@ -163,7 +138,6 @@ const recommendations = async (req, res) => {
       console.error('Analytics recommendation update error:', analyticsErr);
     }
 
-    // Notify student: recommendation generated
     notificationService.notifyRecommendation(studentId).catch(err =>
       console.error('Recommendation notification error:', err)
     );
@@ -179,10 +153,6 @@ const recommendations = async (req, res) => {
   }
 };
 
-/**
- * POST /api/ai/evaluate-lesson-plan
- * Evaluate student-created lesson plan
- */
 const evaluateLessonPlan = async (req, res) => {
   try {
     const { lessonPlanId } = req.body;
@@ -196,7 +166,6 @@ const evaluateLessonPlan = async (req, res) => {
       return error(res, 'Lesson plan not found.', 404);
     }
 
-    // Get material context if available
     let materialContext = '';
     if (lessonPlan.materialId) {
       const material = await Material.findById(lessonPlan.materialId);
@@ -207,7 +176,6 @@ const evaluateLessonPlan = async (req, res) => {
 
     const evaluation = await aiService.evaluateLessonPlan(lessonPlan, materialContext);
 
-    // Update lesson plan with AI evaluation
     lessonPlan.aiEvaluation = evaluation;
     lessonPlan.status = 'ai_evaluated';
     await lessonPlan.save();
@@ -223,10 +191,6 @@ const evaluateLessonPlan = async (req, res) => {
   }
 };
 
-/**
- * POST /api/ai/chat
- * Chat with AI Mentor based on material context
- */
 const chat = async (req, res) => {
   try {
     const { materialId, message, history } = req.body;
@@ -255,11 +219,6 @@ const chat = async (req, res) => {
   }
 };
 
-
-/**
- * POST /api/ai/global-chat
- * Global AI Mentor Chat with file uploads and strict daily limits (3 files, 5MB).
- */
 const globalChat = async (req, res) => {
   try {
     const { message, history } = req.body;
@@ -270,25 +229,22 @@ const globalChat = async (req, res) => {
     }
 
     const userId = req.user._id;
-    const User = require('../models/User'); // Import dynamically or at top
+    const User = require('../models/User');
     const user = await User.findById(userId);
 
-    // Check if it's a new day to reset limits
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (!user.aiLastUsageDate || user.aiLastUsageDate < today) {
       user.aiDailyFilesCount = 0;
       user.aiDailyBytesUsed = 0;
       user.aiLastUsageDate = new Date();
     }
 
-    // Calculate total size of current upload
     const currentUploadSize = files.reduce((acc, file) => acc + file.size, 0);
 
-    // Enforce limits
     const MAX_FILES = 3;
-    const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+    const MAX_BYTES = 5 * 1024 * 1024;
 
     if (user.aiDailyFilesCount + files.length > MAX_FILES) {
       return error(res, `Kunlik fayl yuborish limiti oshib ketdi (Maksimum ${MAX_FILES} ta fayl).`, 403);
@@ -297,7 +253,6 @@ const globalChat = async (req, res) => {
       return error(res, `Kunlik xotira hajmi oshib ketdi (Maksimum 5MB).`, 403);
     }
 
-    // Parse history (it comes as a string in multipart/form-data)
     let parsedHistory = [];
     try {
       if (history) {
@@ -307,10 +262,8 @@ const globalChat = async (req, res) => {
       console.warn('Failed to parse history JSON', e);
     }
 
-    // Process chat with AI
     const aiResponse = await aiService.globalChatWithMentor(message, files, parsedHistory);
 
-    // Update usage only if AI responds successfully
     if (files.length > 0) {
       user.aiDailyFilesCount += files.length;
       user.aiDailyBytesUsed += currentUploadSize;
@@ -331,9 +284,6 @@ const globalChat = async (req, res) => {
   }
 };
 
-/**
- * Helper: Update student cognitive growth after answer evaluation
- */
 async function updateCognitiveGrowth(studentId, bloomAnalysis) {
   try {
     let analytics = await Analytics.findOne({ studentId });
@@ -349,7 +299,6 @@ async function updateCognitiveGrowth(studentId, bloomAnalysis) {
       analyze: bloomAnalysis.analyze || 0,
     });
 
-    // Keep only last 50 entries
     if (analytics.cognitiveGrowth.length > 50) {
       analytics.cognitiveGrowth = analytics.cognitiveGrowth.slice(-50);
     }
@@ -361,9 +310,6 @@ async function updateCognitiveGrowth(studentId, bloomAnalysis) {
   }
 }
 
-/**
- * Helper: Update Analytics Bloom snapshot fields after AI evaluation
- */
 async function updateAnalyticsBloom(studentId, bloomAnalysis, percentage) {
   try {
     let analytics = await Analytics.findOne({ studentId });

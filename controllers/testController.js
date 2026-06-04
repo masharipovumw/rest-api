@@ -4,10 +4,6 @@ const Analytics = require('../models/Analytics');
 const { success, error } = require('../utils/response');
 const notificationService = require('../services/notificationService');
 
-/**
- * POST /api/tests
- * Create a new test (teacher/admin only)
- */
 const createTest = async (req, res) => {
   try {
     const { materialId, title, timer, questions } = req.body;
@@ -31,10 +27,6 @@ const createTest = async (req, res) => {
   }
 };
 
-/**
- * GET /api/tests
- * List all tests
- */
 const getTests = async (req, res) => {
   try {
     const { materialId, independentOnly, page = 1, limit = 20 } = req.query;
@@ -68,10 +60,6 @@ const getTests = async (req, res) => {
   }
 };
 
-/**
- * GET /api/tests/:id
- * Get single test by ID
- */
 const getTestById = async (req, res) => {
   try {
     const test = await Test.findById(req.params.id)
@@ -89,10 +77,6 @@ const getTestById = async (req, res) => {
   }
 };
 
-/**
- * PUT /api/tests/:id
- * Update test (teacher/admin only)
- */
 const updateTest = async (req, res) => {
   try {
     const { title, timer, questions } = req.body;
@@ -119,10 +103,6 @@ const updateTest = async (req, res) => {
   }
 };
 
-/**
- * DELETE /api/tests/:id
- * Delete test (teacher/admin only)
- */
 const deleteTest = async (req, res) => {
   try {
     const test = await Test.findById(req.params.id);
@@ -134,7 +114,6 @@ const deleteTest = async (req, res) => {
       return error(res, 'Not authorized to delete this test.', 403);
     }
 
-    // Delete all submissions associated with this test to free up space
     await Submission.deleteMany({ testId: req.params.id });
 
     await Test.findByIdAndDelete(req.params.id);
@@ -146,11 +125,6 @@ const deleteTest = async (req, res) => {
   }
 };
 
-/**
- * POST /api/tests/submit
- * Student submits test answers
- * Auto-grades objective questions, stores for AI evaluation on open questions
- */
 const submitTest = async (req, res) => {
   try {
     const { testId, answers } = req.body;
@@ -164,7 +138,6 @@ const submitTest = async (req, res) => {
       return error(res, 'Test not found.', 404);
     }
 
-    // Auto-grade objective questions
     let score = 0;
     let maxScore = 0;
 
@@ -202,7 +175,7 @@ const submitTest = async (req, res) => {
           score += question.points || 1;
         }
       }
-      // 'open' questions are not auto-graded — they go to AI evaluation
+
     });
 
     const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
@@ -216,7 +189,6 @@ const submitTest = async (req, res) => {
       percentage,
     });
 
-    // Update student analytics
     await updateStudentAnalytics(req.user._id, percentage, test);
 
     return success(res, submission, 'Test submitted successfully', 201);
@@ -226,9 +198,6 @@ const submitTest = async (req, res) => {
   }
 };
 
-/**
- * Helper: Update student analytics after submission
- */
 async function updateStudentAnalytics(studentId, percentage, test) {
   try {
     let analytics = await Analytics.findOne({ studentId });
@@ -242,7 +211,6 @@ async function updateStudentAnalytics(studentId, percentage, test) {
       ((analytics.totalScore * (analytics.testsCompleted - 1)) + percentage) / analytics.testsCompleted
     );
 
-    // Track lesson progress if test is linked to a material
     if (test.materialId) {
       analytics.lessonProgress.set(test.materialId.toString(), 100);
     }
@@ -254,16 +222,10 @@ async function updateStudentAnalytics(studentId, percentage, test) {
   }
 }
 
-/**
- * GET /api/tests/submissions/all
- * Get all submissions for the authenticated teacher's tests
- * Returns real student answers and AI feedback for review
- */
 const getSubmissions = async (req, res) => {
   try {
     const teacherId = req.user._id;
 
-    // Get all tests created by this teacher
     const teacherTests = await Test.find({ createdBy: teacherId }).select('_id title questions');
     const testIds = teacherTests.map(t => t._id);
 
@@ -271,7 +233,6 @@ const getSubmissions = async (req, res) => {
       return success(res, { submissions: [] });
     }
 
-    // Get all submissions for those tests, populated with student info
     const submissions = await Submission.find({ testId: { $in: testIds } })
       .populate('studentId', 'name email')
       .populate('testId', 'title questions')
@@ -284,34 +245,27 @@ const getSubmissions = async (req, res) => {
   }
 };
 
-/**
- * PUT /api/tests/submissions/:id/review
- * Update status of submission (approved/rejected)
- */
 const reviewSubmission = async (req, res) => {
   try {
     const { status } = req.body;
     if (!['approved', 'rejected'].includes(status)) {
       return error(res, 'Invalid status. Must be approved or rejected.', 400);
     }
-    
+
     const submission = await Submission.findById(req.params.id);
     if (!submission) {
       return error(res, 'Submission not found.', 404);
     }
-    
+
     submission.status = status;
     await submission.save();
 
-    // --- Auto-trigger notifications and analytics update ---
     const studentId = submission.studentId;
 
-    // 1. Notify: teacher review completed
     notificationService.notifyTeacherReview(studentId, status).catch(err =>
       console.error('Teacher review notification error:', err)
     );
 
-    // 2. Update analytics with Bloom scores from submission (if AI evaluated)
     if (submission.bloomAnalysis) {
       try {
         let analytics = await Analytics.findOne({ studentId });
@@ -327,7 +281,6 @@ const reviewSubmission = async (req, res) => {
         analytics.lastUpdated = new Date();
         await analytics.save();
 
-        // 3. Notify: final result generated
         notificationService.notifyFinalResult(studentId, submission.percentage).catch(err =>
           console.error('Final result notification error:', err)
         );
@@ -335,7 +288,7 @@ const reviewSubmission = async (req, res) => {
         console.error('Analytics update on review error:', analyticsErr);
       }
     }
-    
+
     return success(res, submission, `Submission ${status} successfully`);
   } catch (err) {
     console.error('Review submission error:', err);

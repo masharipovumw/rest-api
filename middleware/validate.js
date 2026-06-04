@@ -1,10 +1,6 @@
 const { validationResult } = require('express-validator');
 const { error } = require('../utils/response');
 
-/**
- * Express-validator error handler middleware
- * Place after validation chains in route definitions
- */
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {

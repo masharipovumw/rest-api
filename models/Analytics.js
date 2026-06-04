@@ -16,7 +16,7 @@ const analyticsSchema = new mongoose.Schema({
     default: 0,
   },
   lessonProgress: {
-    // Map of materialId -> progress percentage
+
     type: Map,
     of: Number,
     default: {},
@@ -30,7 +30,7 @@ const analyticsSchema = new mongoose.Schema({
       analyze: { type: Number, default: 0 },
     },
   ],
-  // Latest AI-driven Bloom taxonomy scores
+
   score: {
     type: Number,
     default: 0,

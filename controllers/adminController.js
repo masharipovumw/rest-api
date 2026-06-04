@@ -4,10 +4,6 @@ const Submission = require('../models/Submission');
 const Material = require('../models/Material');
 const { success, error } = require('../utils/response');
 
-/**
- * GET /api/admin/users
- * List all users (admin only)
- */
 const getUsers = async (req, res) => {
   try {
     const { role, search, page = 1, limit = 20 } = req.query;
@@ -45,22 +41,16 @@ const getUsers = async (req, res) => {
   }
 };
 
-/**
- * PATCH /api/admin/users/:id/role
- * Update user role (admin only)
- */
 const updateUserRole = async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
 
-    // Validate role
     const validRoles = ['student', 'teacher', 'admin'];
     if (!role || !validRoles.includes(role)) {
       return error(res, `Invalid role. Allowed roles: ${validRoles.join(', ')}`, 400);
     }
 
-    // Prevent admin from changing their own role
     if (req.user._id.toString() === id) {
       return error(res, 'Cannot change your own role.', 400);
     }
@@ -85,10 +75,6 @@ const updateUserRole = async (req, res) => {
   }
 };
 
-/**
- * GET /api/admin/analytics
- * System-wide analytics (admin only)
- */
 const getAnalytics = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
@@ -98,17 +84,14 @@ const getAnalytics = async (req, res) => {
     const approvedMaterials = await Material.countDocuments({ approved: true });
     const totalSubmissions = await Submission.countDocuments();
 
-    // Average score across all submissions
     const avgScoreResult = await Submission.aggregate([
       { $group: { _id: null, avgScore: { $avg: '$percentage' } } },
     ]);
     const avgScore = avgScoreResult.length > 0 ? Math.round(avgScoreResult[0].avgScore) : 0;
 
-    // Recent submissions (last 7 days)
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentSubmissions = await Submission.countDocuments({ submittedAt: { $gte: weekAgo } });
 
-    // Materials by type
     const materialsByType = await Material.aggregate([
       { $group: { _id: '$type', count: { $sum: 1 } } },
     ]);

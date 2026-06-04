@@ -2,8 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure upload directories exist
-const uploadDirs = ['uploads/videos', 'uploads/audios', 'uploads/images', 'uploads/pdfs', 'uploads/presentations'];
+const uploadDirs = ['uploads/videos', 'uploads/audios', 'uploads/images', 'uploads/pdfs', 'uploads/presentations', 'uploads/documents'];
 uploadDirs.forEach((dir) => {
   const fullPath = path.join(process.cwd(), dir);
   if (!fs.existsSync(fullPath)) {
@@ -11,7 +10,6 @@ uploadDirs.forEach((dir) => {
   }
 });
 
-// Map mime types to destination folders
 const mimeToFolder = {
   'video/mp4': 'videos',
   'video/avi': 'videos',
@@ -28,14 +26,16 @@ const mimeToFolder = {
   'image/webp': 'images',
   'image/svg+xml': 'images',
   'application/pdf': 'pdfs',
-  'application/vnd.ms-powerpoint': 'presentations', // .ppt
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'presentations', // .pptx
+  'application/vnd.ms-powerpoint': 'presentations',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'presentations',
+  'application/msword': 'documents',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'documents',
+  'application/vnd.ms-excel': 'documents',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'documents',
 };
 
-// Allowed mime types
 const allowedMimeTypes = Object.keys(mimeToFolder);
 
-// Storage configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const folder = mimeToFolder[file.mimetype] || 'pdfs';
@@ -43,27 +43,25 @@ const storage = multer.diskStorage({
     cb(null, dest);
   },
   filename: (req, file, cb) => {
-    // Generate unique filename: timestamp-originalname
+
     const uniqueName = `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
     cb(null, uniqueName);
   },
 });
 
-// File filter
 const fileFilter = (req, file, cb) => {
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`File type not allowed: ${file.mimetype}. Allowed: video, audio, image, pdf, presentation`), false);
+    cb(new Error(`File type not allowed: ${file.mimetype}. Allowed: video, audio, image, pdf, presentation, document (Word/Excel)`), false);
   }
 };
 
-// Multer instance with 50MB limit (covers video files)
 const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max
+    fileSize: 50 * 1024 * 1024,
   },
 });
 

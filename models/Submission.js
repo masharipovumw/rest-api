@@ -14,7 +14,7 @@ const submissionSchema = new mongoose.Schema({
   answers: [
     {
       questionIndex: Number,
-      answer: mongoose.Schema.Types.Mixed, // String, Array, or Object depending on question type
+      answer: mongoose.Schema.Types.Mixed,
     },
   ],
   score: {
