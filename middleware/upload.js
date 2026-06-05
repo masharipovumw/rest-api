@@ -2,7 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const uploadDirs = ['uploads/videos', 'uploads/audios', 'uploads/images', 'uploads/pdfs', 'uploads/presentations', 'uploads/documents'];
+const uploadDirs = ['uploads/videos', 'uploads/audios', 'uploads/images', 'uploads/pdfs', 'uploads/presentations', 'uploads/word', 'uploads/excel'];
 uploadDirs.forEach((dir) => {
   const fullPath = path.join(process.cwd(), dir);
   if (!fs.existsSync(fullPath)) {
@@ -28,10 +28,10 @@ const mimeToFolder = {
   'application/pdf': 'pdfs',
   'application/vnd.ms-powerpoint': 'presentations',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'presentations',
-  'application/msword': 'documents',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'documents',
-  'application/vnd.ms-excel': 'documents',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'documents',
+  'application/msword': 'word',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'word',
+  'application/vnd.ms-excel': 'excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'excel',
 };
 
 const allowedMimeTypes = Object.keys(mimeToFolder);
