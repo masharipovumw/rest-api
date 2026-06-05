@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { body } = require('express-validator');
 const User = require('../models/User');
+const { calculateRankDetails } = require('../utils/rank');
 const { success, error } = require('../utils/response');
 
 const generateToken = (user) => {
@@ -78,6 +79,9 @@ const login = async (req, res) => {
 
 const getProfile = async (req, res) => {
   try {
+    const totalPoints = req.user.totalPoints || 0;
+    const rankInfo = calculateRankDetails(totalPoints);
+
     return success(res, {
       id: req.user._id,
       name: req.user.name,
@@ -85,6 +89,11 @@ const getProfile = async (req, res) => {
       role: req.user.role,
       avatar: req.user.avatar,
       createdAt: req.user.createdAt,
+      totalPoints,
+      rank: rankInfo.rank,
+      nextRank: rankInfo.nextRank,
+      nextRankPoints: rankInfo.nextRankPoints,
+      progressPercentage: rankInfo.progressPercentage
     });
   } catch (err) {
     console.error('Profile error:', err);

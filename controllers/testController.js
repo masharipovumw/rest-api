@@ -1,6 +1,8 @@
 const Test = require('../models/Test');
 const Submission = require('../models/Submission');
 const Analytics = require('../models/Analytics');
+const User = require('../models/User');
+const { calculateRankDetails } = require('../utils/rank');
 const { success, error } = require('../utils/response');
 const notificationService = require('../services/notificationService');
 
@@ -190,6 +192,20 @@ const submitTest = async (req, res) => {
     });
 
     await updateStudentAnalytics(req.user._id, percentage, test);
+
+    const user = await User.findById(req.user._id);
+    if (user) {
+      user.totalPoints = (user.totalPoints || 0) + score;
+      const rankInfo = calculateRankDetails(user.totalPoints);
+      user.rank = rankInfo.rank;
+      await user.save();
+
+      return success(res, {
+        submission,
+        newPoints: user.totalPoints,
+        newRank: user.rank
+      }, 'Test submitted successfully', 201);
+    }
 
     return success(res, submission, 'Test submitted successfully', 201);
   } catch (err) {

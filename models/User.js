@@ -27,6 +27,14 @@ const userSchema = new mongoose.Schema({
     enum: ['student', 'teacher', 'admin'],
     default: 'student',
   },
+  totalPoints: {
+    type: Number,
+    default: 0,
+  },
+  rank: {
+    type: String,
+    default: 'Beginner',
+  },
   avatar: {
     type: String,
     default: null,

@@ -13,6 +13,7 @@ const analyticsRoutes = require('./routes/analytics');
 const lessonPlanRoutes = require('./routes/lessonPlans');
 const notificationRoutes = require('./routes/notifications');
 const studentRoutes = require('./routes/student');
+const publicRoutes = require('./routes/public');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -34,6 +35,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/lesson-plans', lessonPlanRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/student', studentRoutes);
+app.use('/api/public', publicRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
